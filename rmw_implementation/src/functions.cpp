@@ -322,7 +322,7 @@ RMW_INTERFACE_FN(
 RMW_INTERFACE_FN(
   rmw_publish_loaned_message,
   rmw_ret_t, RMW_RET_ERROR,
-  3, ARG_TYPES(const rmw_publisher_t *, void *, rmw_publisher_allocation_t *))
+  4, ARG_TYPES(const rmw_publisher_t *, void *, bool, rmw_publisher_allocation_t *))
 
 RMW_INTERFACE_FN(
   rmw_publisher_count_matched_subscriptions,
