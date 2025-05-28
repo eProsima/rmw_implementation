@@ -31,7 +31,16 @@
 #include "test_msgs/msg/bounded_plain_sequences.h"
 #include "test_msgs/msg/bounded_plain_sequences.hpp"
 
+#include "test_msgs/msg/unbounded_sequences.h"
+#include "test_msgs/msg/unbounded_sequences.hpp"
+
 #include "./allocator_testing_utils.h"
+
+static void check_bad_cdr_sequence_cases(
+  const rosidl_message_type_support_t * ts,
+  void * message)
+{
+}
 
 TEST(TestSerializeDeserialize, get_serialization_format) {
   const char * serialization_format = rmw_get_serialization_format();
@@ -171,6 +180,26 @@ TEST(TestSerializeDeserialize, clean_round_trip_for_c_bounded_message) {
   EXPECT_EQ(input_message.uint16_values.data[0], output_message.uint16_values.data[0]);
 }
 
+TEST(TestSerializeDeserialize, bad_cdr_sequence_correctly_fails_for_c) {
+  {
+    const char * serialization_format = rmw_get_serialization_format();
+    if (0 != strcmp(serialization_format, "cdr")) {
+      GTEST_SKIP();
+    }
+  }
+
+  const rosidl_message_type_support_t * ts{
+    ROSIDL_GET_MSG_TYPE_SUPPORT(test_msgs, msg, UnboundedSequences)};
+  test_msgs__msg__UnboundedSequences output_message{};
+  ASSERT_TRUE(test_msgs__msg__UnboundedSequences__init(&output_message));
+  OSRF_TESTING_TOOLS_CPP_SCOPE_EXIT(
+  {
+    test_msgs__msg__UnboundedSequences__fini(&output_message);
+  });
+
+  check_bad_cdr_sequence_cases(ts, &output_message);
+}
+
 TEST(TestSerializeDeserialize, clean_round_trip_for_cpp_message) {
   const rosidl_message_type_support_t * ts =
     rosidl_typesupport_cpp::get_message_type_support_handle<test_msgs::msg::BasicTypes>();
@@ -242,6 +271,22 @@ TEST(TestSerializeDeserialize, clean_round_trip_for_cpp_bounded_message) {
   ret = rmw_deserialize(&serialized_message, ts, &output_message);
   EXPECT_EQ(RMW_RET_OK, ret) << rmw_get_error_string().str;
   EXPECT_EQ(input_message, output_message);
+}
+
+TEST(TestSerializeDeserialize, bad_cdr_sequence_correctly_fails_for_cpp) {
+  {
+    const char * serialization_format = rmw_get_serialization_format();
+    if (0 != strcmp(serialization_format, "cdr")) {
+      GTEST_SKIP();
+    }
+  }
+
+  using TestMessage = test_msgs::msg::UnboundedSequences;
+  const rosidl_message_type_support_t * ts =
+    rosidl_typesupport_cpp::get_message_type_support_handle<TestMessage>();
+  TestMessage output_message{};
+
+  check_bad_cdr_sequence_cases(ts, &output_message);
 }
 
 TEST(TestSerializeDeserialize, rmw_get_serialized_message_size)
