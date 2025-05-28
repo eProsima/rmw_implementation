@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
+#include <cstring>
 
 #include "osrf_testing_tools_cpp/scope_exit.hpp"
 
@@ -40,6 +41,76 @@ static void check_bad_cdr_sequence_cases(
   const rosidl_message_type_support_t * ts,
   void * message)
 {
+  // Serialized CDR buffer for a data with all sequences empty.
+  constexpr size_t kBufferSize = 132;
+  const uint8_t valid_data[kBufferSize] = {
+    0x01, 0x00, 0x00, 0x00,  // representation header (CDR little endian)
+    0x00, 0x00, 0x00, 0x00,  // bool[] bool_values
+    0x00, 0x00, 0x00, 0x00,  // byte[] byte_values
+    0x00, 0x00, 0x00, 0x00,  // char[] char_values
+    0x00, 0x00, 0x00, 0x00,  // float32[] float32_values
+    0x00, 0x00, 0x00, 0x00,  // float64[] float64_values
+    0x00, 0x00, 0x00, 0x00,  // int8[] int8_values
+    0x00, 0x00, 0x00, 0x00,  // uint8[] uint8_values
+    0x00, 0x00, 0x00, 0x00,  // int16[] int16_values
+    0x00, 0x00, 0x00, 0x00,  // uint16[] uint16_values
+    0x00, 0x00, 0x00, 0x00,  // int32[] int32_values
+    0x00, 0x00, 0x00, 0x00,  // uint32[] uint32_values
+    0x00, 0x00, 0x00, 0x00,  // int64[] int64_values
+    0x00, 0x00, 0x00, 0x00,  // uint64[] uint64_values
+    0x00, 0x00, 0x00, 0x00,  // string[] string_values
+    0x00, 0x00, 0x00, 0x00,  // BasicTypes[] basic_types_values
+    0x00, 0x00, 0x00, 0x00,  // Constants[] constants_values
+    0x00, 0x00, 0x00, 0x00,  // Defaults[] defaults_values
+    0x00, 0x00, 0x00, 0x00,  // bool[] bool_values_default
+    0x00, 0x00, 0x00, 0x00,  // byte[] byte_values_default
+    0x00, 0x00, 0x00, 0x00,  // char[] char_values_default
+    0x00, 0x00, 0x00, 0x00,  // float32[] float32_values_default
+    0x00, 0x00, 0x00, 0x00,  // float64[] float64_values_default
+    0x00, 0x00, 0x00, 0x00,  // int8[] int8_values_default
+    0x00, 0x00, 0x00, 0x00,  // uint8[] uint8_values_default
+    0x00, 0x00, 0x00, 0x00,  // int16[] int16_values_default
+    0x00, 0x00, 0x00, 0x00,  // uint16[] uint16_values_default
+    0x00, 0x00, 0x00, 0x00,  // int32[] int32_values_default
+    0x00, 0x00, 0x00, 0x00,  // uint32[] uint32_values_default
+    0x00, 0x00, 0x00, 0x00,  // int64[] int64_values_default
+    0x00, 0x00, 0x00, 0x00,  // uint64[] uint64_values_default
+    0x00, 0x00, 0x00, 0x00,  // string[] string_values_default
+    0x00, 0x00, 0x00, 0x00   // int32 alignment_check
+  };
+
+  uint8_t buffer[kBufferSize];
+  memcpy(buffer, valid_data, kBufferSize);
+
+  // The first 4 bytes are the CDR representation header, which we don't modify.
+  constexpr size_t kFirstSequenceOffset = 4;
+  // The last 4 bytes are the alignment check, which we also don't modify.
+  constexpr size_t kLastSequenceOffset = kBufferSize - 4;
+  // Each sequence length is stored as a 4-byte unsigned integer.
+  constexpr size_t kSequenceLengthSize = 4;
+
+  for (size_t i = kFirstSequenceOffset; i < kLastSequenceOffset; i += kSequenceLengthSize) {
+    // Corrupt the buffer by changing the size of a sequence to an invalid value.
+    buffer[i] = 0xFF;
+    buffer[i + 1] = 0xFF;
+    buffer[i + 2] = 0xFF;
+    buffer[i + 3] = 0xFF;
+
+    // Expect the deserialization to fail.
+    rmw_serialized_message_t serialized_message = rmw_get_zero_initialized_serialized_message();
+    serialized_message.buffer = const_cast<uint8_t *>(buffer);
+    serialized_message.buffer_length = sizeof(buffer);
+    serialized_message.buffer_capacity = sizeof(buffer);
+    rmw_ret_t ret = rmw_deserialize(&serialized_message, ts, message);
+    EXPECT_NE(RMW_RET_OK, ret);
+    rmw_reset_error();
+
+    // Restore the buffer to a valid state.
+    buffer[i] = 0x00;
+    buffer[i + 1] = 0x00;
+    buffer[i + 2] = 0x00;
+    buffer[i + 3] = 0x00;
+  }
 }
 
 TEST(TestSerializeDeserialize, get_serialization_format) {
